@@ -20,5 +20,6 @@
         <attr name="innerDotRadius" format="dimension"/>
         <attr name="innerDotColor" format="color"/>
         <attr name="outerDotRadius" format="dimension"/>
+        <attr name="showPopupOnTouch" format="boolean"/>
     </declare-styleable>
 </resources>

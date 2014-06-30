@@ -80,7 +80,6 @@ public class LineView extends View {
 
     //popup
     private final int bottomTriangleHeight = 12;
-    public boolean showPopup = true; 
 
 	private Dot pointToSelect;
 	private Dot selectedDot;
@@ -122,6 +121,7 @@ public class LineView extends View {
 	}
 
     private boolean drawDotLine;
+    private boolean showPopupOnTouch;
 
     private int[] lineColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
     private int[] popupColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
@@ -149,6 +149,7 @@ public class LineView extends View {
     private static final int DEFAULT_INNER_DOR_RADIUS_DIP = 2;
     private static final int DEFAULT_INNER_DOT_COLOR = 0xffffffff;
     private static final int DEFAULT_OUTER_DOT_RADIUS_DIP = 5;
+    private static final boolean DEFAULT_SHOW_POPUP_ON_TOUCH = true;
 
     // Attributes
     private int backgroundColor;
@@ -230,7 +231,6 @@ public class LineView extends View {
         linesPaint.setStrokeWidth(MyUtils.dip2px(getContext(), 2));
 
         setDrawDotLine(drawDotLine);
-        setPopupsVisibilityMode(popupsVisibilityMode);
 
         popupPool = new PopupPool(context);
     }
@@ -251,6 +251,7 @@ public class LineView extends View {
         innerDotRadius = MyUtils.dip2px(context, DEFAULT_INNER_DOR_RADIUS_DIP);
         innerDotColor = DEFAULT_INNER_DOT_COLOR;
         outerDotRadius = MyUtils.dip2px(context, DEFAULT_OUTER_DOT_RADIUS_DIP);
+        showPopupOnTouch = DEFAULT_SHOW_POPUP_ON_TOUCH;
 
         if (attrs == null) {
             return;
@@ -276,6 +277,7 @@ public class LineView extends View {
             innerDotRadius = a.getDimensionPixelSize(R.styleable.LineView_innerDotRadius, innerDotRadius);
             innerDotColor = a.getColor(R.styleable.LineView_innerDotColor, innerDotColor);
             outerDotRadius = a.getDimensionPixelSize(R.styleable.LineView_outerDotRadius, outerDotRadius);
+            showPopupOnTouch = a.getBoolean(R.styleable.LineView_showPopupOnTouch, showPopupOnTouch);
         } finally {
             a.recycle();
         }
@@ -287,6 +289,14 @@ public class LineView extends View {
 
     public void setPopupsVisibilityMode(PopupsVisibilityMode popupsVisibilityMode) {
         this.popupsVisibilityMode = popupsVisibilityMode;
+    }
+
+    public boolean isShowPopupOnTouch() {
+        return showPopupOnTouch;
+    }
+
+    public void setShowPopupOnTouch(boolean showPopupOnTouch) {
+        this.showPopupOnTouch = showPopupOnTouch;
     }
 
     /**
@@ -356,7 +366,6 @@ public class LineView extends View {
         }
         
         refreshAfterDataChanged();
-        showPopup = true;
         setMinimumWidth(0); // It can help the LineView reset the Width,
                                 // I don't know the better way..
         postInvalidate();
@@ -562,8 +571,7 @@ public class LineView extends View {
             }
         }
 
-        // 선택한 dot 만 popup 이 뜨게 한다.
-        if (showPopup && selectedDot != null) {
+        if (showPopupOnTouch && selectedDot != null) {
             drawPopup(canvas,
                     String.valueOf(selectedDot.data),
                     selectedDot.setupPoint(tmpPoint),
@@ -642,6 +650,10 @@ public class LineView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (! showPopupOnTouch) {
+            return false;
+        }
+
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             pointToSelect = findPointAt((int) event.getX(), (int) event.getY());
         } else if (event.getAction() == MotionEvent.ACTION_UP) {
