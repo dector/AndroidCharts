@@ -150,6 +150,7 @@ public class LineView extends View {
     private static final int DEFAULT_INNER_DOT_COLOR = 0xffffffff;
     private static final int DEFAULT_OUTER_DOT_RADIUS_DIP = 5;
     private static final boolean DEFAULT_SHOW_POPUP_ON_TOUCH = true;
+    private static final int DEFAULT_ANIMATION_VELOCITY_DIP = 18;
 
     // Attributes
     private int backgroundColor;
@@ -165,6 +166,7 @@ public class LineView extends View {
     private int innerDotRadius;
     private int innerDotColor;
     private int outerDotRadius;
+    private int animationVelocity;
 
 	public void setDrawDotLine(Boolean drawDotLine) {
 		this.drawDotLine = drawDotLine;
@@ -180,7 +182,7 @@ public class LineView extends View {
             boolean needNewFrame = false;
             for(ArrayList<Dot> data : drawDotLists){
             	for(Dot dot : data){
-                    dot.update();
+                    dot.update(animationVelocity);
                     if(!dot.isAtRest()){
                         needNewFrame = true;
                     }
@@ -252,6 +254,7 @@ public class LineView extends View {
         innerDotColor = DEFAULT_INNER_DOT_COLOR;
         outerDotRadius = MyUtils.dip2px(context, DEFAULT_OUTER_DOT_RADIUS_DIP);
         showPopupOnTouch = DEFAULT_SHOW_POPUP_ON_TOUCH;
+        animationVelocity = MyUtils.dip2px(context, DEFAULT_ANIMATION_VELOCITY_DIP);
 
         if (attrs == null) {
             return;
@@ -278,6 +281,7 @@ public class LineView extends View {
             innerDotColor = a.getColor(R.styleable.LineView_innerDotColor, innerDotColor);
             outerDotRadius = a.getDimensionPixelSize(R.styleable.LineView_outerDotRadius, outerDotRadius);
             showPopupOnTouch = a.getBoolean(R.styleable.LineView_showPopupOnTouch, showPopupOnTouch);
+            animationVelocity = a.getDimensionPixelSize(R.styleable.LineView_animationVelocity, animationVelocity);
         } finally {
             a.recycle();
         }
@@ -710,7 +714,6 @@ public class LineView extends View {
         int targetX;
         int targetY;
         int linenumber;
-        int velocity = MyUtils.dip2px(getContext(),18);
 
         Dot(int x,int y,int targetX,int targetY,Integer data,int linenumber){
             this.x = x;
@@ -736,7 +739,8 @@ public class LineView extends View {
             return (x==targetX)&&(y==targetY);
         }
 
-        void update(){
+        // TODO add easing
+        void update(int velocity){
             x = updateSelf(x, targetX, velocity);
             y = updateSelf(y, targetY, velocity);
         }

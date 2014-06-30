@@ -21,5 +21,6 @@
         <attr name="innerDotColor" format="color"/>
         <attr name="outerDotRadius" format="dimension"/>
         <attr name="showPopupOnTouch" format="boolean"/>
+        <attr name="animationVelocity" format="dimension"/>
     </declare-styleable>
 </resources>

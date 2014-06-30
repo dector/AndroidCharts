@@ -43,7 +43,8 @@
             lineview:innerDotColor="#0000ff"
             lineview:innerDotRadius="4dp"
             lineview:outerDotRadius="7dp"
-            lineview:showPopupOnTouch="false"/>
+            lineview:showPopupOnTouch="false"
+            lineview:animationVelocity="25dp"/>
     </HorizontalScrollView>
 
     <Button
