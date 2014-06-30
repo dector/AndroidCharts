@@ -2,18 +2,21 @@ package com.dacer.androidcharts;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.Region;
-import android.graphics.drawable.NinePatchDrawable;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -24,9 +27,32 @@ import android.view.View;
  * Edited by Lee youngchan 21/1/14
  * Edited by dector 30-Jun-2014
  */
+// TODO implement instance state saving
 public class LineView extends View {
+
+    public enum PopupsVisibilityMode {
+        NONE, MIN_MAX, ALL;
+
+        @Deprecated
+        static PopupsVisibilityMode fromOldValue(int value) {
+            switch (value) {
+                case SHOW_POPUPS_NONE:
+                    return NONE;
+                case SHOW_POPUPS_MAXMIN_ONLY:
+                    return MIN_MAX;
+                case SHOW_POPUPS_All:
+                    return ALL;
+            }
+
+            return NONE;
+        }
+
+        public static PopupsVisibilityMode byIndex(int index) {
+            return values()[index];
+        }
+    }
+
     private int mViewHeight;
-    //drawBackground
     private boolean autoSetDataOfGird = true;
     private boolean autoSetGridWidth = true;
     private int dataOfAGird = 10;
@@ -34,20 +60,23 @@ public class LineView extends View {
     private ArrayList<String> bottomTextList;
     
     private ArrayList<ArrayList<Integer>> dataLists;
-    private ArrayList<Integer> dataList;
-    
+
     private ArrayList<Integer> xCoordinateList = new ArrayList<Integer>();
     private ArrayList<Integer> yCoordinateList = new ArrayList<Integer>();
     
     private ArrayList<ArrayList<Dot>> drawDotLists = new ArrayList<ArrayList<Dot>>();
-    private ArrayList<Dot> drawDotList = new ArrayList<Dot>();
-    
+
     private int bottomTextDescent;
 
     private final Paint backgroundLinesVerticalPaint = new Paint();
     private final Paint backgroundLinesHorizontalPaint = new Paint();
     private final Paint bottomTextPaint = new Paint();
     private final Paint popupTextPaint = new Paint();
+    private final Paint dotOuterPaint = new Paint();
+    private final Paint dotInnerPaint = new Paint();
+    private final Paint linesPaint = new Paint();
+
+    private final PopupPool popupPool;
 
     //popup
     private final int bottomTriangleHeight = 12;
@@ -63,34 +92,46 @@ public class LineView extends View {
     private int backgroundGridWidth = MyUtils.dip2px(getContext(),45);
 
     //Constants
-    private final int popupTopPadding = MyUtils.dip2px(getContext(),2);
+    private final int popupTopPadding = MyUtils.dip2px(getContext(), 2);
     private final int popupBottomMargin = MyUtils.dip2px(getContext(), 5);
-    private final int bottomTextTopMargin = MyUtils.sp2px(getContext(),5);
+    private final int bottomTextTopMargin = MyUtils.sp2px(getContext(), 5);
     private final int bottomLineLength = MyUtils.sp2px(getContext(), 22);
-    private final int DOT_INNER_CIR_RADIUS = MyUtils.dip2px(getContext(), 2);
-    private final int DOT_OUTER_CIR_RADIUS = MyUtils.dip2px(getContext(),5);
     private final int MIN_TOP_LINE_LENGTH = MyUtils.dip2px(getContext(),12);
     private final int MIN_VERTICAL_GRID_NUM = 4;
     private final int MIN_HORIZONTAL_GRID_NUM = 1;
 
-    public static final int SHOW_POPUPS_All = 1;
-    public static final int SHOW_POPUPS_MAXMIN_ONLY = 2;
-    public static final int SHOW_POPUPS_NONE = 3;
+    /**
+     * @deprecated Use {@link com.dacer.androidcharts.LineView.PopupsVisibilityMode#NONE} instead
+     */
+    @Deprecated public static final int SHOW_POPUPS_All = 1;
+    /**
+     * @deprecated Use {@link com.dacer.androidcharts.LineView.PopupsVisibilityMode#MIN_MAX} instead
+     */
+    @Deprecated public static final int SHOW_POPUPS_MAXMIN_ONLY = 2;
+    /**
+     * @deprecated Use {@link com.dacer.androidcharts.LineView.PopupsVisibilityMode#ALL} instead
+     */
+    @Deprecated public static final int SHOW_POPUPS_NONE = 3;
 
-    private int showPopupType = SHOW_POPUPS_NONE;
+    @Deprecated
+    /**
+     * @deprecated Use {@link #setPopupsVisibilityMode(com.dacer.androidcharts.LineView.PopupsVisibilityMode)} instead
+     */
     public void setShowPopup(int popupType) {
-		this.showPopupType = popupType;
+        setPopupsVisibilityMode(PopupsVisibilityMode.fromOldValue(popupType));
 	}
 
-	//점선표시
-    private Boolean drawDotLine;
-    //라인컬러
-    private String[] colorArray = {"#e74c3c","#2980b9","#1abc9c"};
-    //popup 컬러
-    private int[] popupColorArray = {R.drawable.popup_red,R.drawable.popup_blue,R.drawable.popup_green};
+    private boolean drawDotLine;
+
+    private int[] lineColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
+    private int[] popupColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
+
+
+    private PopupsVisibilityMode popupsVisibilityMode;
 
     // onDraw optimisations
     private final Point tmpPoint = new Point();
+    private final Rect tmpRect = new Rect();
     private final Path tmpPath = new Path();
 
     // Attribute constants
@@ -104,6 +145,10 @@ public class LineView extends View {
     private static final boolean DEFAULT_DRAW_DOT_LINE = false;
     private static final int DEFAULT_POPUP_TEXT_SIZE_SP = 13;
     private static final int DEFAULT_POPUP_TEXT_COLOR = 0xffffffff;
+    private static final int DEFAULT_LINES_THICKNESS_DIP = 2;
+    private static final int DEFAULT_INNER_DOR_RADIUS_DIP = 2;
+    private static final int DEFAULT_INNER_DOT_COLOR = 0xffffffff;
+    private static final int DEFAULT_OUTER_DOT_RADIUS_DIP = 5;
 
     // Attributes
     private int backgroundColor;
@@ -115,6 +160,10 @@ public class LineView extends View {
     private int bottomTextColor;
     private int popupTextSize;
     private int popupTextColor;
+    private int linesThickness;
+    private int innerDotRadius;
+    private int innerDotColor;
+    private int outerDotRadius;
 
 	public void setDrawDotLine(Boolean drawDotLine) {
 		this.drawDotLine = drawDotLine;
@@ -172,7 +221,18 @@ public class LineView extends View {
         backgroundLinesHorizontalPaint.setStrokeWidth(gridHorizontalLineThickness);
         backgroundLinesHorizontalPaint.setColor(gridHorizontalLineColor);
 
+        dotOuterPaint.setAntiAlias(true);
+
+        dotInnerPaint.setAntiAlias(true);
+        dotInnerPaint.setColor(innerDotColor);
+
+        linesPaint.setAntiAlias(true);
+        linesPaint.setStrokeWidth(MyUtils.dip2px(getContext(), 2));
+
         setDrawDotLine(drawDotLine);
+        setPopupsVisibilityMode(popupsVisibilityMode);
+
+        popupPool = new PopupPool(context);
     }
 
     private void initAttributes(Context context, AttributeSet attrs) {
@@ -186,6 +246,11 @@ public class LineView extends View {
         drawDotLine = DEFAULT_DRAW_DOT_LINE;
         popupTextSize = MyUtils.sp2px(context, DEFAULT_POPUP_TEXT_SIZE_SP);
         popupTextColor = DEFAULT_POPUP_TEXT_COLOR;
+        popupsVisibilityMode = PopupsVisibilityMode.NONE;
+        linesThickness = MyUtils.dip2px(context, DEFAULT_LINES_THICKNESS_DIP);
+        innerDotRadius = MyUtils.dip2px(context, DEFAULT_INNER_DOR_RADIUS_DIP);
+        innerDotColor = DEFAULT_INNER_DOT_COLOR;
+        outerDotRadius = MyUtils.dip2px(context, DEFAULT_OUTER_DOT_RADIUS_DIP);
 
         if (attrs == null) {
             return;
@@ -205,9 +270,23 @@ public class LineView extends View {
             drawDotLine = a.getBoolean(R.styleable.LineView_drawDotLine, drawDotLine);
             popupTextSize = a.getDimensionPixelSize(R.styleable.LineView_popupTextSize, popupTextSize);
             popupTextColor = a.getColor(R.styleable.LineView_popupTextColor, popupTextColor);
+            popupsVisibilityMode = PopupsVisibilityMode.byIndex(
+                    a.getInt(R.styleable.LineView_popupsVisibilityMode, popupsVisibilityMode.ordinal()));
+            linesThickness = a.getDimensionPixelSize(R.styleable.LineView_linesThickness, linesThickness);
+            innerDotRadius = a.getDimensionPixelSize(R.styleable.LineView_innerDotRadius, innerDotRadius);
+            innerDotColor = a.getColor(R.styleable.LineView_innerDotColor, innerDotColor);
+            outerDotRadius = a.getDimensionPixelSize(R.styleable.LineView_outerDotRadius, outerDotRadius);
         } finally {
             a.recycle();
         }
+    }
+
+    public PopupsVisibilityMode getPopupsVisibilityMode() {
+        return popupsVisibilityMode;
+    }
+
+    public void setPopupsVisibilityMode(PopupsVisibilityMode popupsVisibilityMode) {
+        this.popupsVisibilityMode = popupsVisibilityMode;
     }
 
     /**
@@ -215,7 +294,6 @@ public class LineView extends View {
      * @param bottomTextList The String ArrayList in the bottom.
      */
     public void setBottomTextList(ArrayList<String> bottomTextList){
-        this.dataList = null;
         this.bottomTextList = bottomTextList;
 
         Rect r = new Rect();
@@ -367,7 +445,7 @@ public class LineView extends View {
         // But this code not so good.
         if((mViewHeight-topLineLength-bottomTextHeight-bottomTextTopMargin)/
                 (verticalGridNum+2)<getPopupHeight()){
-            topLineLength = getPopupHeight()+DOT_OUTER_CIR_RADIUS+DOT_INNER_CIR_RADIUS+2;
+            topLineLength = getPopupHeight() + outerDotRadius + innerDotRadius + 2;
         }else{
             topLineLength = MIN_TOP_LINE_LENGTH;
         }
@@ -379,115 +457,20 @@ public class LineView extends View {
         drawBackgroundGrid(canvas);
         drawBottomText(canvas);
         drawLines(canvas);
-        drawSolidLines(canvas);
         drawDots(canvas);
-
-        
-        for(int k=0; k < drawDotLists.size(); k++){
-        	int MaxValue = Collections.max(dataLists.get(k));
-        	int MinValue = Collections.min(dataLists.get(k));
-        	for(Dot d: drawDotLists.get(k)){
-        		if(showPopupType == SHOW_POPUPS_All)
-        			drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint),popupColorArray[k%3]);
-        		else if(showPopupType == SHOW_POPUPS_MAXMIN_ONLY){
-        			if(d.data == MaxValue)
-        				drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint),popupColorArray[k%3]);
-        			if(d.data == MinValue)
-        				drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint),popupColorArray[k%3]);
-        		}
-        	}
-        }
-    // 선택한 dot 만 popup 이 뜨게 한다.
-        if(showPopup && selectedDot != null){
-            drawPopup(canvas,
-                    String.valueOf(selectedDot.data),
-                    selectedDot.setupPoint(tmpPoint),popupColorArray[selectedDot.linenumber%3]);
-        }
-    }
-
-    /**
-     *
-     * @param canvas  The canvas you need to draw on.
-     * @param point   The Point consists of the x y coordinates from left bottom to right top.
-     *                Like is
-     *                
-     *                3
-     *                2
-     *                1
-     *                0 1 2 3 4 5
-     */
-    private void drawPopup(Canvas canvas,String num, Point point,int PopupColor){
-        boolean singularNum = (num.length() == 1);
-        int sidePadding = MyUtils.dip2px(getContext(),singularNum? 8:5);
-        int x = point.x;
-        int y = point.y-MyUtils.dip2px(getContext(),5);
-        Rect popupTextRect = new Rect();
-        popupTextPaint.getTextBounds(num,0,num.length(),popupTextRect);
-        Rect r = new Rect(x-popupTextRect.width()/2-sidePadding,
-                y - popupTextRect.height()-bottomTriangleHeight-popupTopPadding*2-popupBottomMargin,
-                x + popupTextRect.width()/2+sidePadding,
-                y+popupTopPadding-popupBottomMargin);
-
-        NinePatchDrawable popup = (NinePatchDrawable)getResources().getDrawable(PopupColor);
-        popup.setBounds(r);
-        popup.draw(canvas);
-        canvas.drawText(num, x, y-bottomTriangleHeight-popupBottomMargin, popupTextPaint);
-    }
-
-    private int getPopupHeight(){
-        Rect popupTextRect = new Rect();
-        popupTextPaint.getTextBounds("9",0,1,popupTextRect);
-        Rect r = new Rect(-popupTextRect.width()/2,
-                 - popupTextRect.height()-bottomTriangleHeight-popupTopPadding*2-popupBottomMargin,
-                 + popupTextRect.width()/2,
-                +popupTopPadding-popupBottomMargin);
-        return r.height();
-    }
-
-    //도트그리기
-    private void drawDots(Canvas canvas){
-        Paint bigCirPaint = new Paint();
-        bigCirPaint.setAntiAlias(true);
-        Paint smallCirPaint = new Paint(bigCirPaint);
-        smallCirPaint.setColor(Color.parseColor("#FFFFFF"));
-        if(drawDotLists!=null && !drawDotLists.isEmpty()){
-        	for(int k=0; k < drawDotLists.size(); k++){	
-        		bigCirPaint.setColor(Color.parseColor(colorArray[k%3]));
-        		for(Dot dot : drawDotLists.get(k)){
-                	canvas.drawCircle(dot.x,dot.y,DOT_OUTER_CIR_RADIUS,bigCirPaint);
-                	canvas.drawCircle(dot.x,dot.y,DOT_INNER_CIR_RADIUS,smallCirPaint);
-            	}
-        	}
-        }
-    }
-
-    //선그리기
-    private void drawLines(Canvas canvas){
-        Paint linePaint = new Paint();
-        linePaint.setAntiAlias(true);
-        linePaint.setStrokeWidth(MyUtils.dip2px(getContext(), 2));
-        for(int k = 0; k<drawDotLists.size(); k ++){
-        	linePaint.setColor(Color.parseColor(colorArray[k%3]));
-	        for(int i=0; i<drawDotLists.get(k).size()-1; i++){
-	            canvas.drawLine(drawDotLists.get(k).get(i).x,
-	                    drawDotLists.get(k).get(i).y,
-	                    drawDotLists.get(k).get(i+1).x,
-	                    drawDotLists.get(k).get(i+1).y,
-	                    linePaint);
-	        }
-        }
+        drawPopups(canvas);
     }
 
     private void drawBackground(Canvas canvas) {
         canvas.drawColor(backgroundColor);
     }
-    
+
     private void drawBackgroundGrid(Canvas canvas) {
-        drawGridVericalLines(canvas);
+        drawGridVerticalLines(canvas);
         drawGridHorizontalLines(canvas);
     }
 
-    private void drawGridVericalLines(Canvas canvas) {
+    private void drawGridVerticalLines(Canvas canvas) {
         final int verticalLineYEnd = mViewHeight - bottomTextTopMargin - bottomTextHeight - bottomTextDescent;
 
         for (int i = 0; i < xCoordinateList.size(); i++) {
@@ -530,14 +513,95 @@ public class LineView extends View {
         }
     }
 
-    private void drawSolidLines(Canvas canvas) {
-        if (drawDotLine) {
+    private void drawLines(Canvas canvas) {
+        for(int i = 0; i < drawDotLists.size(); i++) {
+            linesPaint.setColor(lineColors[i % 3]);
+
+            for (int j = 0; j < drawDotLists.get(i).size() - 1; j++) {
+                canvas.drawLine(drawDotLists.get(i).get(j).x,
+                        drawDotLists.get(i).get(j).y,
+                        drawDotLists.get(i).get(j+1).x,
+                        drawDotLists.get(i).get(j+1).y,
+                        linesPaint);
+            }
+        }
+    }
+
+    private void drawDots(Canvas canvas){
+        if (drawDotLists.isEmpty()) {
             return;
         }
 
-        final int width = getWidth();
+        for (int i = 0; i < drawDotLists.size(); i++) {
+            dotOuterPaint.setColor(lineColors[i % 3]);
 
+            for (Dot dot : drawDotLists.get(i)) {
+                canvas.drawCircle(dot.x, dot.y, outerDotRadius, dotOuterPaint);
+                canvas.drawCircle(dot.x, dot.y, innerDotRadius, dotInnerPaint);
+            }
+        }
+    }
 
+    private void drawPopups(Canvas canvas) {
+        // FIXME check this. Look little bit confusing
+        for (int k = 0; k < drawDotLists.size(); k++) {
+            final int max = Collections.max(dataLists.get(k));
+            final int min = Collections.min(dataLists.get(k));
+
+            for (Dot d : drawDotLists.get(k)) {
+                if (popupsVisibilityMode == PopupsVisibilityMode.ALL)
+                    drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                else if (popupsVisibilityMode == PopupsVisibilityMode.MIN_MAX) {
+                    if (d.data == max) {
+                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                    }
+                    if (d.data == min) {
+                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                    }
+                }
+            }
+        }
+
+        // 선택한 dot 만 popup 이 뜨게 한다.
+        if (showPopup && selectedDot != null) {
+            drawPopup(canvas,
+                    String.valueOf(selectedDot.data),
+                    selectedDot.setupPoint(tmpPoint),
+                    popupColors[selectedDot.linenumber % 3]);
+        }
+    }
+
+    private void drawPopup(Canvas canvas, String value, Point point, int popupColor) {
+        final Context context = getContext();
+
+        final int sidePadding = MyUtils.dip2px(context, value.length() == 1 ? 8 : 5);
+        final int x = point.x;
+        final int y = point.y - MyUtils.dip2px(context, 5);
+
+        popupTextPaint.getTextBounds(value, 0, value.length(), tmpRect);
+
+        final int textWidth = tmpRect.width();
+        final int textHeight = tmpRect.height();
+        tmpRect.set(x - textWidth / 2 - sidePadding,
+                y - textHeight - bottomTriangleHeight - popupTopPadding * 2 - popupBottomMargin,
+                x + textWidth / 2 + sidePadding,
+                y + popupTopPadding - popupBottomMargin);
+
+        Drawable popup = popupPool.getPopupDrawable(popupColor);
+        popup.setBounds(tmpRect);
+        popup.draw(canvas);
+
+        canvas.drawText(value, x, y - bottomTriangleHeight - popupBottomMargin, popupTextPaint);
+    }
+
+    private int getPopupHeight(){
+        Rect popupTextRect = new Rect();
+        popupTextPaint.getTextBounds("9",0,1,popupTextRect);
+        Rect r = new Rect(-popupTextRect.width()/2,
+                 - popupTextRect.height()-bottomTriangleHeight-popupTopPadding*2-popupBottomMargin,
+                 + popupTextRect.width()/2,
+                +popupTopPadding-popupBottomMargin);
+        return r.height();
     }
 
     @Override
@@ -664,6 +728,31 @@ public class LineView extends View {
                 origin = target;
             }
             return origin;
+        }
+    }
+
+    private static class PopupPool {
+
+        private Resources resources;
+        private Map<Integer, Drawable> pool = new HashMap<Integer, Drawable>();
+
+        public PopupPool(Context context) {
+            this.resources = context.getResources();
+        }
+
+        public Drawable getPopupDrawable(int color) {
+            Drawable drawable;
+
+            if (pool.containsKey(color)) {
+                drawable = pool.get(color);
+            } else {
+                drawable = resources.getDrawable(R.drawable.ic_popup);
+                drawable.mutate();
+                drawable.setColorFilter(color, PorterDuff.Mode.MULTIPLY);
+                pool.put(color, drawable);
+            }
+
+            return drawable;
         }
     }
 }

@@ -11,5 +11,14 @@
         <attr name="drawDotLine" format="boolean"/>
         <attr name="popupTextSize" format="dimension"/>
         <attr name="popupTextColor" format="color"/>
+        <attr name="popupsVisibilityMode" format="enum">
+            <enum name="none" value="0"/>
+            <enum name="minmax" value="1"/>
+            <enum name="all" value="2"/>
+        </attr>
+        <attr name="linesThickness" format="dimension"/>
+        <attr name="innerDotRadius" format="dimension"/>
+        <attr name="innerDotColor" format="color"/>
+        <attr name="outerDotRadius" format="dimension"/>
     </declare-styleable>
 </resources>
