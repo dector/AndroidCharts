@@ -4,18 +4,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.PathEffect;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.drawable.NinePatchDrawable;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -43,11 +42,14 @@ public class LineView extends View {
     private ArrayList<ArrayList<Dot>> drawDotLists = new ArrayList<ArrayList<Dot>>();
     private ArrayList<Dot> drawDotList = new ArrayList<Dot>();
     
-    private Paint bottomTextPaint = new Paint();
     private int bottomTextDescent;
 
+    private final Paint backgroundLinesVerticalPaint = new Paint();
+    private final Paint backgroundLinesHorizontalPaint = new Paint();
+    private final Paint bottomTextPaint = new Paint();
+    private final Paint popupTextPaint = new Paint();
+
     //popup
-    private Paint popupTextPaint = new Paint();
     private final int bottomTriangleHeight = 12;
     public boolean showPopup = true; 
 
@@ -62,7 +64,7 @@ public class LineView extends View {
 
     //Constants
     private final int popupTopPadding = MyUtils.dip2px(getContext(),2);
-    private final int popupBottomMargin = MyUtils.dip2px(getContext(),5);
+    private final int popupBottomMargin = MyUtils.dip2px(getContext(), 5);
     private final int bottomTextTopMargin = MyUtils.sp2px(getContext(),5);
     private final int bottomLineLength = MyUtils.sp2px(getContext(), 22);
     private final int DOT_INNER_CIR_RADIUS = MyUtils.dip2px(getContext(), 2);
@@ -70,9 +72,7 @@ public class LineView extends View {
     private final int MIN_TOP_LINE_LENGTH = MyUtils.dip2px(getContext(),12);
     private final int MIN_VERTICAL_GRID_NUM = 4;
     private final int MIN_HORIZONTAL_GRID_NUM = 1;
-    private final int BACKGROUND_LINE_COLOR = Color.parseColor("#EEEEEE");
-    private final int BOTTOM_TEXT_COLOR = Color.parseColor("#9B9A9B");
-    
+
     public static final int SHOW_POPUPS_All = 1;
     public static final int SHOW_POPUPS_MAXMIN_ONLY = 2;
     public static final int SHOW_POPUPS_NONE = 3;
@@ -83,7 +83,7 @@ public class LineView extends View {
 	}
 
 	//점선표시
-    private Boolean drawDotLine = false;
+    private Boolean drawDotLine;
     //라인컬러
     private String[] colorArray = {"#e74c3c","#2980b9","#1abc9c"};
     //popup 컬러
@@ -91,9 +91,37 @@ public class LineView extends View {
 
     // onDraw optimisations
     private final Point tmpPoint = new Point();
-    
+    private final Path tmpPath = new Path();
+
+    // Attribute constants
+    private static final int DEFAULT_BACKGROUND_COLOR = 0x00ffffff;
+    private static final int DEFAULT_GRID_VERTICAL_LINE_THICKNESS_DIP = 1;
+    private static final int DEFAULT_GRID_VERTICAL_LINE_COLOR = 0xffeeeeee;
+    private static final int DEFAULT_GRID_HORIZONTAL_LINE_THICKNESS_DIP = 1;
+    private static final int DEFAULT_GRID_HORIZONTAL_LINE_COLOR = 0xffeeeeee;
+    private static final int DEFAULT_BOTTOM_TEXT_SIZE_SP = 12;
+    private static final int DEFAULT_BOTTOM_TEXT_COLOR = 0xff9b9a9b;
+    private static final boolean DEFAULT_DRAW_DOT_LINE = false;
+    private static final int DEFAULT_POPUP_TEXT_SIZE_SP = 13;
+    private static final int DEFAULT_POPUP_TEXT_COLOR = 0xffffffff;
+
+    // Attributes
+    private int backgroundColor;
+    private int gridVerticalLineThickness;
+    private int gridVerticalLineColor;
+    private int gridHorizontalLineThickness;
+    private int gridHorizontalLineColor;
+    private int bottomTextSize;
+    private int bottomTextColor;
+    private int popupTextSize;
+    private int popupTextColor;
+
 	public void setDrawDotLine(Boolean drawDotLine) {
 		this.drawDotLine = drawDotLine;
+
+        backgroundLinesHorizontalPaint.setPathEffect(drawDotLine
+                ? new DashPathEffect(new float[]{ 10, 5, 10, 5 }, 1)
+                : null);
 	}
 
 	private Runnable animator = new Runnable() {
@@ -116,21 +144,70 @@ public class LineView extends View {
     };
 
     public LineView(Context context){
-        this(context,null);
+        this(context, null);
     }
-    public LineView(Context context, AttributeSet attrs){
+
+    public LineView(Context context, AttributeSet attrs) {
         super(context, attrs);
+
+        initAttributes(context, attrs);
+
         popupTextPaint.setAntiAlias(true);
-        popupTextPaint.setColor(Color.WHITE);
-        popupTextPaint.setTextSize(MyUtils.sp2px(getContext(), 13));
+        popupTextPaint.setColor(popupTextColor);
+        popupTextPaint.setTextSize(popupTextSize);
         popupTextPaint.setStrokeWidth(5);
         popupTextPaint.setTextAlign(Paint.Align.CENTER);
 
         bottomTextPaint.setAntiAlias(true);
-        bottomTextPaint.setTextSize(MyUtils.sp2px(getContext(),12));
+        bottomTextPaint.setTextSize(bottomTextSize);
         bottomTextPaint.setTextAlign(Paint.Align.CENTER);
         bottomTextPaint.setStyle(Paint.Style.FILL);
-        bottomTextPaint.setColor(BOTTOM_TEXT_COLOR);
+        bottomTextPaint.setColor(bottomTextColor);
+
+        backgroundLinesVerticalPaint.setStyle(Paint.Style.STROKE);
+        backgroundLinesVerticalPaint.setStrokeWidth(gridVerticalLineThickness);
+        backgroundLinesVerticalPaint.setColor(gridVerticalLineColor);
+
+        backgroundLinesHorizontalPaint.setStyle(Paint.Style.STROKE);
+        backgroundLinesHorizontalPaint.setStrokeWidth(gridHorizontalLineThickness);
+        backgroundLinesHorizontalPaint.setColor(gridHorizontalLineColor);
+
+        setDrawDotLine(drawDotLine);
+    }
+
+    private void initAttributes(Context context, AttributeSet attrs) {
+        backgroundColor = DEFAULT_BACKGROUND_COLOR;
+        gridVerticalLineThickness = MyUtils.dip2px(context, DEFAULT_GRID_VERTICAL_LINE_THICKNESS_DIP);
+        gridVerticalLineColor = DEFAULT_GRID_HORIZONTAL_LINE_COLOR;
+        gridHorizontalLineThickness = MyUtils.dip2px(context, DEFAULT_GRID_HORIZONTAL_LINE_THICKNESS_DIP);
+        gridHorizontalLineColor = DEFAULT_GRID_VERTICAL_LINE_COLOR;
+        bottomTextSize = MyUtils.sp2px(context, DEFAULT_BOTTOM_TEXT_SIZE_SP);
+        bottomTextColor = DEFAULT_BOTTOM_TEXT_COLOR;
+        drawDotLine = DEFAULT_DRAW_DOT_LINE;
+        popupTextSize = MyUtils.sp2px(context, DEFAULT_POPUP_TEXT_SIZE_SP);
+        popupTextColor = DEFAULT_POPUP_TEXT_COLOR;
+
+        if (attrs == null) {
+            return;
+        }
+
+        TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.LineView, 0, 0);
+        try {
+            backgroundColor = a.getColor(R.styleable.LineView_backgroundColor, backgroundColor);
+            gridVerticalLineThickness = a.getDimensionPixelSize(R.styleable.LineView_gridVerticalLineThickness,
+                    gridVerticalLineThickness);
+            gridVerticalLineColor = a.getColor(R.styleable.LineView_gridVerticalLineColor, gridVerticalLineColor);
+            gridHorizontalLineThickness = a.getDimensionPixelSize(R.styleable.LineView_gridHorizontalLineThickness,
+                    gridHorizontalLineThickness);
+            gridHorizontalLineColor = a.getColor(R.styleable.LineView_gridHorizontalLineColor, gridHorizontalLineColor);
+            bottomTextSize = a.getDimensionPixelSize(R.styleable.LineView_bottomTextSize, bottomTextSize);
+            bottomTextColor = a.getColor(R.styleable.LineView_bottomTextColor, bottomTextColor);
+            drawDotLine = a.getBoolean(R.styleable.LineView_drawDotLine, drawDotLine);
+            popupTextSize = a.getDimensionPixelSize(R.styleable.LineView_popupTextSize, popupTextSize);
+            popupTextColor = a.getColor(R.styleable.LineView_popupTextColor, popupTextColor);
+        } finally {
+            a.recycle();
+        }
     }
 
     /**
@@ -298,8 +375,11 @@ public class LineView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        drawBackgroundLines(canvas);
+        drawBackground(canvas);
+        drawBackgroundGrid(canvas);
+        drawBottomText(canvas);
         drawLines(canvas);
+        drawSolidLines(canvas);
         drawDots(canvas);
 
         
@@ -317,7 +397,7 @@ public class LineView extends View {
         		}
         	}
         }
-// 선택한 dot 만 popup 이 뜨게 한다.        
+    // 선택한 dot 만 popup 이 뜨게 한다.
         if(showPopup && selectedDot != null){
             drawPopup(canvas,
                     String.valueOf(selectedDot.data),
@@ -397,50 +477,67 @@ public class LineView extends View {
 	        }
         }
     }
-    
-    
-     private void drawBackgroundLines(Canvas canvas){
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(MyUtils.dip2px(getContext(),1f));
-        paint.setColor(BACKGROUND_LINE_COLOR);
-        PathEffect effects = new DashPathEffect(
-                new float[]{10,5,10,5}, 1);
 
-        //draw vertical lines
-        for(int i=0;i<xCoordinateList.size();i++){
-            canvas.drawLine(xCoordinateList.get(i),
-                    0,
-                    xCoordinateList.get(i),
-                    mViewHeight - bottomTextTopMargin - bottomTextHeight-bottomTextDescent,
-                    paint);
+    private void drawBackground(Canvas canvas) {
+        canvas.drawColor(backgroundColor);
+    }
+    
+    private void drawBackgroundGrid(Canvas canvas) {
+        drawGridVericalLines(canvas);
+        drawGridHorizontalLines(canvas);
+    }
+
+    private void drawGridVericalLines(Canvas canvas) {
+        final int verticalLineYEnd = mViewHeight - bottomTextTopMargin - bottomTextHeight - bottomTextDescent;
+
+        for (int i = 0; i < xCoordinateList.size(); i++) {
+            final int x = xCoordinateList.get(i);
+            canvas.drawLine(x, 0, x, verticalLineYEnd, backgroundLinesVerticalPaint);
         }
-        
-        //draw dotted lines
-      paint.setPathEffect(effects);
-      Path dottedPath = new Path();
-      for(int i=0;i<yCoordinateList.size();i++){
-          if((yCoordinateList.size()-1-i)%dataOfAGird == 0){
-              dottedPath.moveTo(0, yCoordinateList.get(i));
-              dottedPath.lineTo(getWidth(), yCoordinateList.get(i));
-              canvas.drawPath(dottedPath, paint);
-          }
-      }
-    	  //draw bottom text
-      if(bottomTextList != null){
-    	  for(int i=0;i<bottomTextList.size();i++){
-    		  canvas.drawText(bottomTextList.get(i), sideLineLength+backgroundGridWidth*i, mViewHeight-bottomTextDescent, bottomTextPaint);
-    	  }
-      }
-      
-      if(!drawDotLine){
-    	//draw solid lines
-          for(int i=0;i<yCoordinateList.size();i++){
-              if((yCoordinateList.size()-1-i)%dataOfAGird == 0){
-                  canvas.drawLine(0,yCoordinateList.get(i),getWidth(),yCoordinateList.get(i),paint);
-              }
-          }
-      }
+    }
+
+    private void drawGridHorizontalLines(Canvas canvas) {
+        final int width = getWidth();
+
+        if (drawDotLine) {
+            tmpPath.reset();
+        }
+
+        for (int i = 0, count = yCoordinateList.size(); i < count; i++) {
+            if ((count - 1 - i) % dataOfAGird != 0) {
+                continue;
+            }
+
+            final int y = yCoordinateList.get(i);
+
+            if (drawDotLine) {
+                tmpPath.moveTo(0, y);
+                tmpPath.lineTo(width, y);
+                canvas.drawPath(tmpPath, backgroundLinesHorizontalPaint);
+            } else {
+                canvas.drawLine(0, y, width, y, backgroundLinesHorizontalPaint);
+            }
+        }
+    }
+
+    private void drawBottomText(Canvas canvas) {
+        if (bottomTextList == null) {
+            return;
+        }
+
+        for (int i = 0; i < bottomTextList.size(); i++) {
+            canvas.drawText(bottomTextList.get(i), sideLineLength + backgroundGridWidth * i, mViewHeight - bottomTextDescent, bottomTextPaint);
+        }
+    }
+
+    private void drawSolidLines(Canvas canvas) {
+        if (drawDotLine) {
+            return;
+        }
+
+        final int width = getWidth();
+
+
     }
 
     @Override

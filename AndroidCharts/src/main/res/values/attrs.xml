@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="LineView">
+        <attr name="backgroundColor" format="color"/>
+        <attr name="gridVerticalLineThickness" format="dimension"/>
+        <attr name="gridVerticalLineColor" format="color"/>
+        <attr name="gridHorizontalLineThickness" format="dimension"/>
+        <attr name="gridHorizontalLineColor" format="color"/>
+        <attr name="bottomTextSize" format="dimension"/>
+        <attr name="bottomTextColor" format="color"/>
+        <attr name="drawDotLine" format="boolean"/>
+        <attr name="popupTextSize" format="dimension"/>
+        <attr name="popupTextColor" format="color"/>
+    </declare-styleable>
+</resources>
