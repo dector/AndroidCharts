@@ -21,6 +21,8 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 
+import com.dacer.androidcharts.palette.ColorPalette;
+import com.dacer.androidcharts.palette.SimpleChartColorPalette;
 
 /**
  * Created by Dacer on 11/4/13.
@@ -123,9 +125,7 @@ public class LineView extends View {
     private boolean drawDotLine;
     private boolean showPopupOnTouch;
 
-    private int[] lineColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
-    private int[] popupColors = { 0xffe74c3c, 0xff2980b9, 0xff1abc9c };
-
+    private ColorPalette colorPalette = new SimpleChartColorPalette();
 
     private PopupsVisibilityMode popupsVisibilityMode;
 
@@ -297,6 +297,17 @@ public class LineView extends View {
 
     public void setShowPopupOnTouch(boolean showPopupOnTouch) {
         this.showPopupOnTouch = showPopupOnTouch;
+    }
+
+    public ColorPalette getColorPalette() {
+        return colorPalette;
+    }
+
+    public void setColorPalette(ColorPalette colorPalette) {
+        if (colorPalette == null || colorPalette.isEmpty()) {
+            throw new IllegalArgumentException("Color palette can't be null or empty");
+        }
+        this.colorPalette = colorPalette;
     }
 
     /**
@@ -524,7 +535,7 @@ public class LineView extends View {
 
     private void drawLines(Canvas canvas) {
         for(int i = 0; i < drawDotLists.size(); i++) {
-            linesPaint.setColor(lineColors[i % 3]);
+            linesPaint.setColor(colorPalette.getColor(i));
 
             for (int j = 0; j < drawDotLists.get(i).size() - 1; j++) {
                 canvas.drawLine(drawDotLists.get(i).get(j).x,
@@ -542,7 +553,7 @@ public class LineView extends View {
         }
 
         for (int i = 0; i < drawDotLists.size(); i++) {
-            dotOuterPaint.setColor(lineColors[i % 3]);
+            dotOuterPaint.setColor(colorPalette.getColor(i));
 
             for (Dot dot : drawDotLists.get(i)) {
                 canvas.drawCircle(dot.x, dot.y, outerDotRadius, dotOuterPaint);
@@ -559,13 +570,13 @@ public class LineView extends View {
 
             for (Dot d : drawDotLists.get(k)) {
                 if (popupsVisibilityMode == PopupsVisibilityMode.ALL)
-                    drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                    drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), colorPalette.getColor(k));
                 else if (popupsVisibilityMode == PopupsVisibilityMode.MIN_MAX) {
                     if (d.data == max) {
-                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), colorPalette.getColor(k));
                     }
                     if (d.data == min) {
-                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), popupColors[k % 3]);
+                        drawPopup(canvas, String.valueOf(d.data), d.setupPoint(tmpPoint), colorPalette.getColor(k));
                     }
                 }
             }
@@ -575,7 +586,7 @@ public class LineView extends View {
             drawPopup(canvas,
                     String.valueOf(selectedDot.data),
                     selectedDot.setupPoint(tmpPoint),
-                    popupColors[selectedDot.linenumber % 3]);
+                    colorPalette.getColor(selectedDot.linenumber));
         }
     }
 

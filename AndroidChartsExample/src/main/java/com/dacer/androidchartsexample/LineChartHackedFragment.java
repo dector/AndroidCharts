@@ -16,6 +16,7 @@ import java.util.ArrayList;
  */
 public class LineChartHackedFragment extends Fragment {
 
+    private static final int DATASETS_COUNT = 4;
     private static final int DATA_LENGTH = 10;
 
     private LineView normalChartView;
@@ -62,9 +63,9 @@ public class LineChartHackedFragment extends Fragment {
 
     private void buildData() {
         data = new ArrayList<ArrayList<Integer>>();
-        data.add(buildRandomList());
-        data.add(buildRandomList());
-        data.add(buildRandomList());
+        for (int i = 0; i < DATASETS_COUNT; i++) {
+            data.add(buildRandomList());
+        }
     }
 
     private ArrayList<Integer> buildRandomList() {
