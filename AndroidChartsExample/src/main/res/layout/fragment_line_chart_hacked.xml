@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:lineview="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:orientation="vertical">
+
+    <HorizontalScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp">
+
+            <com.dacer.androidcharts.LineView
+                android:id="@+id/chart_normal"
+                android:layout_width="wrap_content"
+                android:layout_height="200dp"/>
+        
+    </HorizontalScrollView>
+
+    <HorizontalScrollView
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp">
+
+        <com.dacer.androidcharts.LineView
+            android:id="@+id/chart_hacked"
+            android:layout_width="wrap_content"
+            android:layout_height="200dp"
+            lineview:backgroundColor="#330000ff"
+            lineview:gridHorizontalLineThickness="2dp"
+            lineview:gridVerticalLineThickness="2dp"
+            lineview:gridHorizontalLineColor="#000000"
+            lineview:gridVerticalLineColor="#ffffff"
+            lineview:bottomTextSize="20dp"
+            lineview:bottomTextColor="#ff0000"
+            lineview:drawDotLine="true"
+            lineview:popupTextSize="20dp"
+            lineview:popupTextColor="#00ff00"
+            lineview:popupsVisibilityMode="minmax"
+            lineview:linesThickness="1dp"
+            lineview:innerDotColor="#0000ff"
+            lineview:innerDotRadius="4dp"
+            lineview:outerDotRadius="7dp"
+            lineview:showPopupOnTouch="false"/>
+    </HorizontalScrollView>
+
+    <Button
+        android:id="@+id/btnRandomize"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="@string/button_randomize"/>
+
+</LinearLayout>
